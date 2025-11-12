@@ -22,7 +22,8 @@ Install them with:
 
 ```bash
 pip install -r requirements.txt
-
+```
 Then run the Dashboard on console with:
 ```bash
 python app.py
+```

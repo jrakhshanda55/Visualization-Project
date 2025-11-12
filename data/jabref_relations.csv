@@ -1,0 +1,16 @@
+﻿Source,Target
+Globals,Cli
+Globals,GUI
+Globals,Logic
+Globals,Model
+Globals,Preferences
+Logic,Model
+GUI, Model
+GUI,Logic
+GUI,Preferences
+GUI,Cli
+GUI,Globals
+Cli,Model
+Cli,Logic
+Cli,Globals
+Cli,Preferences

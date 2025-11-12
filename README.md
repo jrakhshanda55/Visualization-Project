@@ -2,7 +2,7 @@
 
 An **interactive dashboard** for exploring and visualizing software architecture using **Graph Neural Networks (GNNs)** and **Graph Autoencoders (GAEs)**. The app allows you to analyze dependencies, view architectural structures, and train GNN-based models to learn software module representations.
 
-## Features
+### Features
 
 - Load and explore software dependency datasets  
 - Visualize implemented and intended architectures  
@@ -23,4 +23,22 @@ pip install -r requirements.txt
 Then run the Dashboard on console with:
 ```bash
 python app.py
+```
+## Project Structure
+
+```bash
+visualization_project/
+│
+├── app.py                       
+├── requirements.txt        
+├── compute/
+│   ├── data_builder.py       
+│   ├── gnn_models.py            
+│   ├── projection.py             
+│   └── plot_architecture.py      
+└── data/
+    ├── <dataset_name>.csv       
+    ├── <dataset_name>_deps.csv  
+    └── <dataset_name>_relations.csv (optional intended architecture)
+
 ```

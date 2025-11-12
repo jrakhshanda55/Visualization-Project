@@ -1,6 +1,6 @@
-# Software Architecture Analysis Dashboard (GNNs + Graph Autoencoders)
+# Software Architecture Analysis Dashboard
 
-An **interactive dashboard** for exploring and visualizing software architecture using **Graph Neural Networks (GNNs)** and **Graph Autoencoders (GAEs)**. The app allows you to analyze dependencies, view architectural structures, and train GNN-based models to learn software module representations.
+An **interactive dashboard** for exploring and visualizing software architecture using Graph Neural Networks (GNNs) and Graph Autoencoders (GAEs). The app allows you to analyze dependencies, view architectural structures, and train GNN-based models to learn software module representations.
 
 ### Features
 

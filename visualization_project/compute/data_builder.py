@@ -13,7 +13,7 @@ from sklearn.preprocessing import normalize
 from .w2v import W2VEmbeddingGenerator, STOPWORDS, file_level_vectors
 
 PathLike = Union[str, Path]
-
+BASE_DATASET_CACHE = {}
 
 # ---------------------------------------------------------------------------
 # IO utilities
@@ -53,7 +53,16 @@ def load_nodes_edges(nodes_path: PathLike, deps_path: PathLike) -> Tuple[pd.Data
             else:
                 nodes[col] = default
 
-    # Validate dependencies
+    if "Module" in nodes.columns:
+        nodes["Module"] = (
+            nodes["Module"]
+            .astype(str)
+            .apply(lambda m: m.split(".")[-1])
+            .apply(lambda m: "GUI" if m.lower()=="gui" else
+                            "CLI" if m.lower()=="cli" else
+                            m.capitalize())
+        )
+        
     need = {"Source", "Target"}
     if not need.issubset(deps.columns):
         raise ValueError("deps file must include 'Source' and 'Target' columns.")
@@ -104,7 +113,7 @@ def _trim_without_ext(fname: str, lang: str) -> str:
 def file_location_features(files: List[str], language: str = "Java") -> np.ndarray:
     """CountVectorizer over basenames/paths (extension removed)."""
     bases = [_trim_without_ext(str(f), language.lower()) for f in files]
-    vect = CountVectorizer(binary=False)
+    vect = CountVectorizer(binary=True)
     return vect.fit_transform(bases).toarray().astype(np.float32)
 
 
@@ -124,23 +133,21 @@ def build_node_features(nodes: pd.DataFrame,
                         feature_type: str,
                         language: str = "Java",
                         w2v_dim: int = 100) -> np.ndarray:
-    
+
     ft = feature_type.strip().lower()
     files = nodes["File"].astype(str).tolist()
 
-    # --- Option 1: Combined folder + semantic features ---
     if ft == "file_location+code_w2v":
         loc = file_location_features(files, language)
-        code = code_w2v_features(nodes, dim=w2v_dim)
+        if "Word2Vec" in nodes.columns:
+            code = np.vstack(nodes["Word2Vec"].apply(lambda x: np.array(eval(x))).to_numpy())
+        else:
+            code = code_w2v_features(nodes, dim=w2v_dim)
 
-        # --- Normalize each modality separately ---
-        loc_norm = normalize(loc, norm="l2", axis=1)
         code_norm = normalize(code, norm="l2", axis=1)
+        return np.hstack([loc, code_norm])
 
-        # --- Concatenate normalized vectors ---
-        return np.hstack([loc_norm, code_norm])
-
-    # --- Option 2: Simple fiel location ---
+    # ----------- CASE 2: simple folder-based features ---------------
     if ft == "simple":
         folder_paths = []
         for f in files:
@@ -154,6 +161,7 @@ def build_node_features(nodes: pd.DataFrame,
         return X
 
     raise ValueError(f"Unknown feature_type: {feature_type}")
+
 
 # ---------------------------------------------------------------------------
 # Heterogeneous Graph Builder
@@ -196,15 +204,13 @@ def build_heterogeneous_graph(
         mask = src.notna() & tgt.notna()
         if mask.sum() == 0:
             continue
-        edge_index = torch.tensor(
-            [src[mask].astype(int).to_numpy(), tgt[mask].astype(int).to_numpy()],
-            dtype=torch.long,
-        )
+
+        src_arr = src[mask].astype(int).to_numpy()
+        tgt_arr = tgt[mask].astype(int).to_numpy()
+
+        edge_index_np = np.stack([src_arr, tgt_arr], axis=0)
+        edge_index = torch.from_numpy(edge_index_np).long()
         data["entity", dep, "entity"].edge_index = edge_index
-        if "Dependency_Count" in sub.columns:
-            w = torch.tensor(sub.loc[mask, "Dependency_Count"].astype(float).to_numpy(), dtype=torch.float)
-            w = w / (w.max() + 1e-6)
-            data["entity", dep, "entity"].edge_weight = w
 
     return data, idx_of
 
@@ -212,29 +218,30 @@ def build_heterogeneous_graph(
 # ---------------------------------------------------------------------------
 # Unified Dataset Builder
 # ---------------------------------------------------------------------------
-def build_dataset(
-    nodes_path: PathLike,
-    deps_path: PathLike,
-    chosen_types: Iterable[str],
-    feature_type: str,
-    language: str = "Java",
-    w2v_dim: int = 100,
-):
-    """
-    Load files, build a heterogeneous graph, construct node features,
-    and return (PyG HeteroData, nodes_df, index_map).
-    """
-    nodes, deps = load_nodes_edges(nodes_path, deps_path)
-    data, idx_of = build_heterogeneous_graph(nodes, deps, chosen_types)
+def build_base_dataset(nodes_path, deps_path, feature_type, w2v_dim):
+    key = (str(nodes_path), str(deps_path), feature_type, w2v_dim)
 
-    # Build node features
-    X = build_node_features(
-        nodes,
-        feature_type=feature_type,
-        language=language,
-        w2v_dim=w2v_dim,
+    if key in BASE_DATASET_CACHE:
+        return BASE_DATASET_CACHE[key]
+
+    # Very expensive steps
+    nodes, deps = load_nodes_edges(nodes_path, deps_path)
+    X = build_node_features(nodes, feature_type, w2v_dim=w2v_dim)
+
+    BASE_DATASET_CACHE[key] = (nodes, deps, X)
+    return nodes, deps, X
+
+def build_dataset(nodes_path, deps_path, chosen_types, feature_type, w2v_dim=100):
+    nodes, deps, X = build_base_dataset(
+        nodes_path, deps_path,
+        feature_type,
+        w2v_dim
     )
 
-    # Assign features to 'entity' node type
+    # Build graph using filtered dependency types
+    data, idx_of = build_heterogeneous_graph(nodes, deps, chosen_types)
+
+    # Assign precomputed node features
     data["entity"].x = torch.tensor(X, dtype=torch.float32)
+
     return data, nodes, idx_of

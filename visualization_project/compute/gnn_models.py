@@ -82,7 +82,6 @@ class _Adapter(nn.Module):
 
     def forward(self, x_dict, ei_dict):
         out = self.enc(x_dict, ei_dict)['entity']
-        # For VGAE: return μ and logσ
         if self.for_vgae:
             mu = out
             logstd = torch.zeros_like(mu)  # no learned variance yet
@@ -147,7 +146,7 @@ def train_gae(
         gae = VGAE(_Adapter(enc, for_vgae=True)).to(device)
     else:  
         gae = GAE(_Adapter(enc)).to(device)
-        
+    gae.apply(lambda m: getattr(m, 'reset_parameters', lambda: None)())
     opt = torch.optim.Adam(gae.parameters(), lr=lr)
 
     last_loss = None

@@ -53,6 +53,51 @@ DEFAULT_DATASET = DATASET_OPTIONS[0]["value"] if DATASET_OPTIONS else None
 BASE_FONT = {"fontFamily": "Segoe UI, Roboto, Helvetica, Arial, sans-serif", "color": "#0c1127"}
 LABEL_STYLE = {"fontSize": "18px", "fontWeight": "600", "marginTop": "8px", **BASE_FONT}
 
+TT_ENCODER = (
+    "Encoder = how the GNN combines info from neighbor files (via dependencies).\n\n"
+    "GCN: treats neighbors almost equally (simple node-degree normalization).\n\n"
+    "GAT: learns which neighbors matter more (attention mechanism)."
+)
+
+TT_MODEL = (
+    "GAE / VGAE learn embeddings by reconstructing dependency edges.\n\n"
+    "GAE: one fixed embedding per file.\n"
+    "VGAE: embedding with uncertainty (more regularized)."
+)
+
+TT_DEPS = (
+    "Dependency types = which edges are included in GNN message passing.\n"
+    "Different choices → different embeddings and clusters."
+)
+
+TT_FEATURES = (
+    "Features = what information each file starts with.\n\n"
+    "File location + Code (W2V): uses folder path + code identifiers.\n"
+    "File identifier: uses only the file name/id."
+)
+TT_HIDDEN = (
+    "Size of the learned embedding.\n"
+    "Larger → more expressive, but slower and may overfit."
+)
+
+def label_with_info(text: str, info_id: str):
+    return html.Div(
+        [
+            html.Span(text, style=LABEL_STYLE),
+            html.Span(
+                " ⓘ",
+                id=info_id,
+                style={
+                    "cursor": "help",
+                    "color": "#0d47a1",
+                    "fontWeight": "700",
+                    "marginLeft": "6px",
+                    "fontSize": "16px",
+                },
+            ),
+        ],
+        style={"display": "flex", "alignItems": "center"},
+    )
 SIDEBAR_STYLE = {
     "position": "fixed",
     "top": 0,
@@ -118,20 +163,20 @@ dataset_controls = dbc.Card(
 
 gnn_controls = dbc.Accordion([
     dbc.AccordionItem([
-        html.P("Dependency Types", style=LABEL_STYLE),
+        label_with_info("Dependency Types", "tt-deps"),
         dcc.Dropdown(id="dep-types", options=[], value=[], multi=True,
                      placeholder="Select dependency types...", style={"fontSize": "18px"}),
         html.Br(),
         dbc.Row([
             dbc.Col([
-                html.P("Encoder", style=LABEL_STYLE),
+                label_with_info("Encoder", "tt-encoder"),
                 dbc.RadioItems(id="enc-type",
                                options=[{"label": "GAT", "value": "gat"},
                                         {"label": "GCN", "value": "gcn"}],
                                value="gat", inline=True, style={"fontSize": "18px"})
             ], width=5),
             dbc.Col([
-                html.P("Model", style=LABEL_STYLE),
+                label_with_info("Model", "tt-model"),
                 dbc.RadioItems(id="model-type",
                                options=[{"label": "GAE", "value": "gae"},
                                         {"label": "VGAE", "value": "vgae"}],
@@ -139,13 +184,13 @@ gnn_controls = dbc.Accordion([
             ], width=5)
         ]),
         html.Br(),
-        html.P("Features", style=LABEL_STYLE),
+        label_with_info("Features", "tt-features"),
         dbc.RadioItems(id="feat-mode",
                        options=[{"label": "File location + Code (W2V)", "value": "file_location+code_w2v"},
                                 {"label": "File identifier", "value": "simple"}],
                        value="file_location+code_w2v", style={"fontSize": "18px"}),
         html.Br(),
-        html.P("Embedding Dim", style=LABEL_STYLE),
+        label_with_info("Embedding Dim", "tt-hidden"),
         dcc.Slider(id="hidden-dim", min=64, max=256, step=32, value=64,
                    marks={64: "64", 128: "128", 256: "256"}),
         html.Br(),
@@ -375,6 +420,39 @@ app.layout = html.Div(
     [
         sidebar,
         content,
+
+        dbc.Tooltip(
+            TT_DEPS,
+            target="tt-deps",
+            placement="right",
+            style={"whiteSpace": "pre-line", "fontSize": "14px", "maxWidth": "320px"},
+        ),
+        
+        dbc.Tooltip(
+            TT_ENCODER,
+            target="tt-encoder",
+            placement="right",
+            style={"whiteSpace": "pre-line", "fontSize": "14px", "maxWidth": "320px"},
+        ),
+        dbc.Tooltip(
+            TT_MODEL,
+            target="tt-model",
+            placement="right",
+            style={"whiteSpace": "pre-line", "fontSize": "14px", "maxWidth": "320px"},
+        ),
+        dbc.Tooltip(
+            TT_FEATURES,
+            target="tt-features",
+            placement="right",
+            style={"whiteSpace": "pre-line", "fontSize": "14px", "maxWidth": "320px"},
+        ),
+        dbc.Tooltip(
+            TT_HIDDEN,
+            target="tt-hidden",
+            placement="right",
+            style={"whiteSpace": "pre-line", "fontSize": "14px", "maxWidth": "280px"},
+        ),
+
     ]
 )
 
